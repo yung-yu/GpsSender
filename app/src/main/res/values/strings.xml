@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">GPSSender</string>
+    <string name="app_name">GPS Sender</string>
     <string name="activityId">活動ID:</string>
     <string name="gps_request_time">GPS 回應時間(秒):</string>
 </resources>
