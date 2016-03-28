@@ -34,6 +34,7 @@ public class GpsService extends Service{
     public static final String BUNDLE_KEY_ACTIVITYID = "bundle_key_activityId";
     public static final String GPS_START = "gps_start";
     public static final String GPS_STOP = "gps_stop";
+
     private HandlerThread handlerThread;
     private Handler worker;
     public static final int SEND_LOCATIONS_TO_SERVER = 1;
@@ -43,7 +44,7 @@ public class GpsService extends Service{
     Long minTime = 5*1000L;
     Float minDistance = 1f;
     int activityId = 1;
-
+    int notifyId = 7;
     @Override
     public void onCreate() {
         super.onCreate();
@@ -63,7 +64,6 @@ public class GpsService extends Service{
                             Log.d(TAG, reponese);
                         }catch (Exception e){
                             Log.e(TAG,e.toString());
-
                         }
                         break;
                 }
@@ -88,11 +88,13 @@ public class GpsService extends Service{
                     gpsLocationListener = new GpsLocationListener();
                 gpsManager.requestLocationUpdates(this,minTime, minDistance, gpsLocationListener);
                 acquireWakeLock();
+                AndroidUtil.showNotifycation(this,notifyId,"GPS開始追蹤中...");
             }else if(cmd.equals(GPS_STOP)){
                  if(gpsLocationListener != null)
                    gpsManager.removeUpdates(this,gpsLocationListener);
                 gpsLocationListener = null;
                 releaseWakeLock();
+                AndroidUtil.cancelNotifycation(this,notifyId);
             }
         }
         return Service.START_STICKY;
@@ -140,13 +142,14 @@ public class GpsService extends Service{
     }
     private void getLocation(final Location location) {	//將定位資訊顯示在畫面中
         if(location != null) {
-            Log.d("gpshttp", location.toString());
+            Log.d(TAG, location.toString());
             worker.obtainMessage(SEND_LOCATIONS_TO_SERVER, location).sendToTarget();
         }
         else {
-            Toast.makeText(this, "無法定位座標", Toast.LENGTH_LONG).show();
+            Log.e(TAG, "無法定位座標!!");
         }
     }
+
     private String callApi(Location data ,int activityID){
         try {
             String urlStr = String.format(SystemConstant.API_URL, activityID);
@@ -190,17 +193,17 @@ public class GpsService extends Service{
         }
     }
 
-
+    //在螢幕關掉時,維持cpu運作
     private void acquireWakeLock(){
         if (wakeLock == null){
             PowerManager pm = (PowerManager)this.getSystemService(Context.POWER_SERVICE);
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK|PowerManager.ON_AFTER_RELEASE, "PostLocationService");
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK|PowerManager.ON_AFTER_RELEASE, "GpsService");
             if (null != wakeLock){
                 wakeLock.acquire();
             }
         }
     }
-
+    //釋放cpu
     private void releaseWakeLock(){
         if (wakeLock != null){
             wakeLock.release();

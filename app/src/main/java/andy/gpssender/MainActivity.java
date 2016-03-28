@@ -19,6 +19,7 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -68,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.i(TAG, "onCreate");
         setContentView(R.layout.activity_main);
         mSwitch = (Switch) findViewById(R.id.switch1);
         seekBar = (SeekBar) findViewById(R.id.seekBar);
@@ -122,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         gpsManager = new GpsManager(this);
 
         if (!getLastKnownLocationIfAllowed())
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_COARSE_LOCATION);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION ,Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_COARSE_LOCATION);
         else
             gpsManager.openGPS();
 
@@ -131,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-
+        Log.i(TAG, "onStart");
         gpsBroadReciver = new GpsBroadReciver();
         IntentFilter intentFilter = new IntentFilter(SystemConstant.BROADCAST_LOCATION_UPDATE);
         LocalBroadcastManager.getInstance(this).registerReceiver(gpsBroadReciver, intentFilter);
@@ -141,36 +143,41 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.i(TAG, "onResume");
         handleUIState();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        Log.i(TAG, "onPause");
     }
 
     @Override
     public void onStop() {
         super.onStop();
+        Log.i(TAG, "onStop");
         if(gpsBroadReciver!=null)
             LocalBroadcastManager.getInstance(this).unregisterReceiver(gpsBroadReciver);
 
     }
-
     @Override
     protected void onDestroy() {
+        Log.i(TAG, "onDestroy");
         if ( uiHandler != null) uiHandler.removeCallbacksAndMessages(null);
+        AndroidUtil.sendToGPSSrvice(this, null , GpsService.GPS_STOP);
         super.onDestroy();
+
 
     }
 
     private void handleUIState(){
         if (mSwitch.isChecked()) {
-            //開啟追蹤處理
+            //開啟追蹤處理狀態
             editText.setEnabled(false);
             seekBar.setEnabled(false);
         } else {
-            //關閉追蹤處理
+            //關閉追蹤處理狀態
             editText.setEnabled(true);
             seekBar.setEnabled(true);
         }
@@ -180,9 +187,6 @@ public class MainActivity extends AppCompatActivity {
         handleUIState();
         if (mSwitch.isChecked()) {
             //開啟追蹤處理
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                return;
-            }
             Bundle bd = new Bundle();
             bd.putInt(GpsService.BUNDLE_KEY_ACTIVITYID,Integer.valueOf(editText.getText().toString()));
             bd.putLong(GpsService.BUNDLE_KEY_MINTIME, minTime);
@@ -197,10 +201,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean getLastKnownLocationIfAllowed() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             return true;
         }
-
         return false;
     }
 
@@ -210,12 +214,14 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode){
             case REQUEST_COARSE_LOCATION:
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                //noinspection ResourceType
-                gpsManager.openGPS();
-            } else {
-                //Permission denied
-            }
+                if (grantResults.length > 1
+                        &&(permissions[0].equals(Manifest.permission.ACCESS_COARSE_LOCATION) && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                        &&(permissions[1].equals(Manifest.permission.ACCESS_FINE_LOCATION) && grantResults[1] == PackageManager.PERMISSION_GRANTED) ){
+                    //noinspection ResourceType
+                    gpsManager.openGPS();
+                } else {
+                    //Permission denied
+                }
             break;
         }
     }
