@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.location.Location;
 import android.location.LocationListener;
 import android.os.BatteryManager;
@@ -57,6 +58,7 @@ public class GpsService extends Service{
         super.onCreate();
         Log.i(TAG, "onCreate");
         gpsManager = new GpsManager(this);
+
         handlerThread = new HandlerThread("network");
         handlerThread.start();
         worker = new Handler(handlerThread.getLooper()) {
@@ -97,7 +99,7 @@ public class GpsService extends Service{
                     gpsLocationListener = new GpsLocationListener();
                 gpsManager.requestLocationUpdates(this, minTime, minDistance, gpsLocationListener);
                 acquireWakeLock();
-                AndroidUtil.showNotifycation(this, notifyId, "GPS開始追蹤中...");
+                AndroidUtil.showNotifycation(this, notifyId, "GPS定位...");
             }else if(cmd.equals(GPS_STOP)){
                  if(gpsLocationListener != null)
                    gpsManager.removeUpdates(this,gpsLocationListener);
@@ -227,7 +229,7 @@ public class GpsService extends Service{
             wakeLock = null;
         }
     }
-
+    //接收手機電量監控
     BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
 
         @Override

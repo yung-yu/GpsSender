@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -57,9 +58,9 @@ public class MainActivity extends AppCompatActivity {
     private SeekBar seekBar;
     private TextView seekBarMsg;
     private EditText editText;
-    private long minTime = 5 * 1000L;
-    private long minDistance = 1L;
-
+    private int minTime = 5;
+    private float minDistance = 1L;
+    private SharedPreferences sharedPreferences;
     private ListView listView;
     private LocationListAdapter locationListAdapter;
     private GpsManager gpsManager;
@@ -77,6 +78,14 @@ public class MainActivity extends AppCompatActivity {
         editText = (EditText) findViewById(R.id.editText);
         listView = (ListView) findViewById(R.id.listView);
 
+        sharedPreferences = getSharedPreferences("GpsSender", Context.MODE_PRIVATE);
+        minTime = sharedPreferences.getInt("minTime", 5);
+        minDistance = sharedPreferences.getFloat("minDistance", 1f);
+        seekBar.setProgress(minTime - 5);
+        seekBarMsg.setText(Integer.toString(minTime));
+        mSwitch.setChecked(sharedPreferences.getBoolean("switch", false));
+        handleUIState();
+
         locationListAdapter = new LocationListAdapter(this);
         listView.setAdapter(locationListAdapter);
 
@@ -84,7 +93,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 seekBarMsg.setText(Integer.toString(progress + 5));
-                minTime = (progress + 5) * 1000L;
+                minTime = progress + 5;
+                sharedPreferences.edit().putInt("minTime", minTime).commit();
             }
 
             @Override
@@ -161,12 +171,11 @@ public class MainActivity extends AppCompatActivity {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(gpsBroadReciver);
 
     }
+
     @Override
     protected void onDestroy() {
         Log.i(TAG, "onDestroy");
         if ( uiHandler != null) uiHandler.removeCallbacksAndMessages(null);
-        AndroidUtil.sendToGPSSrvice(this, null, GpsService.GPS_STOP);
-
         super.onDestroy();
 
 
@@ -190,14 +199,14 @@ public class MainActivity extends AppCompatActivity {
             //開啟追蹤處理
             Bundle bd = new Bundle();
             bd.putInt(GpsService.BUNDLE_KEY_ACTIVITYID,Integer.valueOf(editText.getText().toString()));
-            bd.putLong(GpsService.BUNDLE_KEY_MINTIME, minTime);
+            bd.putLong(GpsService.BUNDLE_KEY_MINTIME, minTime*1000L);
             bd.putFloat(GpsService.BUNDLE_KEY_MINDISTANCE, minDistance);
             AndroidUtil.sendToGPSSrvice(this, bd, GpsService.GPS_START);
-
+            sharedPreferences.edit().putBoolean("switch",true).commit();
         } else {
             //關閉追蹤處理
             AndroidUtil.sendToGPSSrvice(this, null , GpsService.GPS_STOP);
-
+            sharedPreferences.edit().putBoolean("switch",false).commit();
         }
     }
 
@@ -278,15 +287,15 @@ public class MainActivity extends AppCompatActivity {
             GpsItem gpsItem = getItem(position);
              if(gpsItem != null){
                  StringBuilder dataStr = new StringBuilder();
-                 dataStr.append("p[0][id]=").append("-1").append("\n")
-                         .append("p[0][a]=").append(gpsItem.location.getLatitude()).append("\n")
-                         .append("p[0][n]=").append(gpsItem.location.getLongitude()).append("\n")
-                         .append("p[0][h]=").append(gpsItem.location.getAccuracy()).append("\n")
-                         .append("p[0][v]=").append("-1").append("\n")
-                         .append("p[0][l]=").append("-1").append("\n")
-                         .append("p[0][s]=").append(gpsItem.location.getSpeed()).append("\n")
-                         .append("p[0][t]=").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(gpsItem.location.getTime()))).append("\n")
-                         .append("p[0][ｂ]=").append(gpsItem.bettery);
+                 dataStr.append("ID = ").append("-1").append("\n")
+                         .append("經度 = ").append(gpsItem.location.getLatitude()).append("\n")
+                         .append("緯度 = ").append(gpsItem.location.getLongitude()).append("\n")
+                         .append("準確度 = ").append(gpsItem.location.getAccuracy()).append("\n")
+                         .append("海拔 = ").append(gpsItem.location.getAltitude()).append("\n")
+                         .append("方位 = ").append(gpsItem.location.getBearing()).append("\n")
+                         .append("速度 = ").append(gpsItem.location.getSpeed()).append("\n")
+                         .append("時間 = ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(gpsItem.location.getTime()))).append("\n")
+                         .append("電量 = ").append(gpsItem.bettery);
                  textView.setText(dataStr.toString());
              }
             return convertView;
