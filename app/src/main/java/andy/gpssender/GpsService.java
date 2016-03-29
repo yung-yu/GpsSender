@@ -1,10 +1,13 @@
 package andy.gpssender;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.location.LocationListener;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -38,13 +41,17 @@ public class GpsService extends Service{
     private HandlerThread handlerThread;
     private Handler worker;
     public static final int SEND_LOCATIONS_TO_SERVER = 1;
-    GpsManager gpsManager;
-    GpsLocationListener gpsLocationListener;
-    PowerManager.WakeLock wakeLock = null;
-    Long minTime = 5*1000L;
-    Float minDistance = 1f;
-    int activityId = 1;
-    int notifyId = 7;
+    private GpsManager gpsManager;
+    private GpsLocationListener gpsLocationListener;
+    private PowerManager.WakeLock wakeLock = null;
+    private Long minTime = 5*1000L;
+    private Float minDistance = 1f;
+    private int activityId = 1;
+    private int notifyId = 7;
+    private int batteryScale = -1;
+    private int batteryLevel = -1;
+    private int batteryVoltage = -1;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -69,6 +76,8 @@ public class GpsService extends Service{
                 }
             }
         };
+        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        registerReceiver(batteryReceiver, filter);
     }
 
     @Override
@@ -86,15 +95,15 @@ public class GpsService extends Service{
 
                 if(gpsLocationListener == null)
                     gpsLocationListener = new GpsLocationListener();
-                gpsManager.requestLocationUpdates(this,minTime, minDistance, gpsLocationListener);
+                gpsManager.requestLocationUpdates(this, minTime, minDistance, gpsLocationListener);
                 acquireWakeLock();
-                AndroidUtil.showNotifycation(this,notifyId,"GPS開始追蹤中...");
+                AndroidUtil.showNotifycation(this, notifyId, "GPS開始追蹤中...");
             }else if(cmd.equals(GPS_STOP)){
                  if(gpsLocationListener != null)
                    gpsManager.removeUpdates(this,gpsLocationListener);
                 gpsLocationListener = null;
                 releaseWakeLock();
-                AndroidUtil.cancelNotifycation(this,notifyId);
+                AndroidUtil.cancelNotifycation(this, notifyId);
             }
         }
         return Service.START_STICKY;
@@ -118,6 +127,9 @@ public class GpsService extends Service{
             worker.removeCallbacksAndMessages(null);
         }
         releaseWakeLock();
+        if(gpsLocationListener != null)
+            gpsManager.removeUpdates(this,gpsLocationListener);
+        unregisterReceiver(batteryReceiver);
     }
 
     private  class GpsLocationListener implements LocationListener {
@@ -162,6 +174,10 @@ public class GpsService extends Service{
             connection.setDoOutput(true);
             connection.connect();
             StringBuilder dataStr = new StringBuilder();
+            int bettery = -1;
+            if(batteryScale != -1 && batteryLevel != -1){
+                bettery = (int)((Float.valueOf(batteryLevel)/Float.valueOf(batteryScale))*100f);
+            }
             dataStr.append("p[0][id]=").append("-1").append("&")
                     .append("p[0][a]=").append(data.getLatitude()).append("&")
                     .append("p[0][n]=").append(data.getLongitude()).append("&")
@@ -170,7 +186,8 @@ public class GpsService extends Service{
                     .append("p[0][l]=").append("-1").append("&")
                     .append("p[0][s]=").append(data.getSpeed()).append("&")
                     .append("p[0][t]=").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(data.getTime()))).append("&")
-                    .append("p[0][i]=").append("0");
+                    .append("p[0][i]=").append("0").append("&")
+                    .append("p[0][b]=").append(bettery);
             Log.d("gpshttp", dataStr.toString());
             OutputStream out = connection.getOutputStream();
             out.write(dataStr.toString().getBytes());
@@ -182,7 +199,7 @@ public class GpsService extends Service{
                 //通知UI更新畫面
                 Intent it = new Intent();
                 it.setAction(SystemConstant.BROADCAST_LOCATION_UPDATE);
-                SystemConstant.list.add(0, data);
+                SystemConstant.list.add(0, new GpsItem(data,bettery));
                 LocalBroadcastManager.getInstance(this).sendBroadcast(it);
                 return msg;
             }else{
@@ -210,4 +227,15 @@ public class GpsService extends Service{
             wakeLock = null;
         }
     }
+
+    BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+            batteryScale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+            batteryVoltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+            Log.e(TAG, "level is "+batteryLevel+"/"+batteryScale+", voltage is "+batteryVoltage);
+        }
+    };
 }

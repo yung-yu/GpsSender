@@ -14,6 +14,6 @@ public class SystemConstant {
 
     public static final String BROADCAST_LOCATION_UPDATE = "BROADCAST_LOCATION_UPDATE";
 
-    public static List<Location> list = new ArrayList<Location>();
+    public static List<GpsItem> list = new ArrayList<GpsItem>();
 
 }

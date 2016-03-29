@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
@@ -47,8 +48,6 @@ public class MainActivity extends AppCompatActivity {
 
     private final static String TAG = "GPSsender";
     public static final int REQUEST_COARSE_LOCATION = 1;
-    //non_UI_HANDLER
-    public static final int SEND_LOCATIONS_TO_SERVER = 1;
     //UI_HANDLER
     public static final int REFRESH_LISTVIEW = 1;
     public static final int SHOW_API_ERRMSG = 2;
@@ -64,7 +63,8 @@ public class MainActivity extends AppCompatActivity {
     private ListView listView;
     private LocationListAdapter locationListAdapter;
     private GpsManager gpsManager;
-    private GpsBroadReciver gpsBroadReciver = new GpsBroadReciver();;
+    private GpsBroadReciver gpsBroadReciver = new GpsBroadReciver();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -165,7 +165,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         Log.i(TAG, "onDestroy");
         if ( uiHandler != null) uiHandler.removeCallbacksAndMessages(null);
-        AndroidUtil.sendToGPSSrvice(this, null , GpsService.GPS_STOP);
+        AndroidUtil.sendToGPSSrvice(this, null, GpsService.GPS_STOP);
+
         super.onDestroy();
 
 
@@ -238,11 +239,11 @@ public class MainActivity extends AppCompatActivity {
     private class LocationListAdapter extends BaseAdapter{
 
         private LayoutInflater inflater;
-        private List<Location> datas;
+        private List<GpsItem> datas;
         public LocationListAdapter(Context context){
             inflater = LayoutInflater.from(context);
         }
-        public void setDatas(List<Location> datas){
+        public void setDatas(List<GpsItem> datas){
             this.datas = datas;
         }
         @Override
@@ -253,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public Location getItem(int position) {
+        public GpsItem getItem(int position) {
             if(datas != null)
                 return datas.get(position);
             return null;
@@ -274,20 +275,23 @@ public class MainActivity extends AppCompatActivity {
              }else{
                  textView = (TextView) convertView.getTag();
              }
-            Location location = getItem(position);
-             if(location != null){
+            GpsItem gpsItem = getItem(position);
+             if(gpsItem != null){
                  StringBuilder dataStr = new StringBuilder();
                  dataStr.append("p[0][id]=").append("-1").append("\n")
-                         .append("p[0][a]=").append(location.getLatitude()).append("\n")
-                         .append("p[0][n]=").append(location.getLongitude()).append("\n")
-                         .append("p[0][h]=").append(location.getAccuracy()).append("\n")
+                         .append("p[0][a]=").append(gpsItem.location.getLatitude()).append("\n")
+                         .append("p[0][n]=").append(gpsItem.location.getLongitude()).append("\n")
+                         .append("p[0][h]=").append(gpsItem.location.getAccuracy()).append("\n")
                          .append("p[0][v]=").append("-1").append("\n")
                          .append("p[0][l]=").append("-1").append("\n")
-                         .append("p[0][s]=").append(location.getSpeed()).append("\n")
-                         .append("p[0][t]=").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(location.getTime()))).append("\n");
+                         .append("p[0][s]=").append(gpsItem.location.getSpeed()).append("\n")
+                         .append("p[0][t]=").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(gpsItem.location.getTime()))).append("\n")
+                         .append("p[0][ｂ]=").append(gpsItem.bettery);
                  textView.setText(dataStr.toString());
              }
             return convertView;
         }
     }
+
+
 }
